@@ -68,11 +68,13 @@
 
   /* Real hues, unlike the greyscale ramp they replace. NodeDetail reads these
      straight out of the SVG, so the charts pick the palette up on their own. */
+  /* Categorical, and deliberately without green, amber or red: those three mean
+     state on this panel, so a probe line drawn in amber reads as a warning. */
   --chart-1: oklch(0.424 0.199 265.638); /* the accent: a chart line and a card meter are one blue */
-  --chart-2: oklch(0.723 0.192 149.6); /* green */
-  --chart-3: oklch(0.769 0.165 70.1); /* amber */
-  --chart-4: oklch(0.606 0.219 292.7); /* violet */
-  --chart-5: oklch(0.715 0.126 215.2); /* cyan */
+  --chart-2: oklch(0.609 0.111 221.7); /* cyan */
+  --chart-3: oklch(0.592 0.218 0.6); /* pink */
+  --chart-4: oklch(0.541 0.247 293.0); /* violet -- the second series on the rate chart */
+  --chart-5: oklch(0.554 0.041 257.4); /* slate, for "other" */
 }
 
 .dark {
@@ -113,10 +115,10 @@
   --tag-foreground: oklch(0.775 0.114 265.6); /* #93b4ff -- 8.48:1 on tag */
 
   --chart-1: oklch(0.662 0.179 264.6);
-  --chart-2: oklch(0.773 0.153 163.2);
-  --chart-3: oklch(0.837 0.164 84.4);
+  --chart-2: oklch(0.797 0.134 211.5); /* #22d3ee */
+  --chart-3: oklch(0.725 0.175 349.8); /* #f472b6 */
   --chart-4: oklch(0.709 0.159 293.5); /* #a78bfa */
-  --chart-5: oklch(0.797 0.134 211.5); /* #22d3ee */
+  --chart-5: oklch(0.711 0.035 256.8); /* #94a3b8 */
 }
 
 @theme inline {

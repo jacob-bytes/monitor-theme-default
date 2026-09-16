@@ -1,5 +1,6 @@
 import { LayoutGrid, List, Search, X } from "lucide-react"
 
+import { Segmented } from "@/components/ui/segmented"
 import type { Node } from "@/lib/api"
 import { FILTERS, type FilterKey } from "@/lib/group"
 import { cn } from "@/lib/utils"
@@ -12,26 +13,6 @@ export type View = "grid" | "list"
  * instrument panel.
  */
 const CONTROL = "h-8"
-
-function Toggle({ active, onClick, label, children }: {
-  active: boolean; onClick: () => void; label: string; children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "inline-flex size-6 items-center justify-center rounded transition-colors",
-        active ? "bg-accent text-primary" : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  )
-}
 
 /**
  * A group tab. Plain text with the active one in the accent colour, which is the
@@ -190,18 +171,17 @@ export function Toolbar({ nodes, counts, view, onView, query, onQuery, filters, 
           )}
         </label>
 
-        <div
-          role="group"
-          aria-label="切换视图"
-          className={cn("inline-flex shrink-0 items-center gap-0.5 rounded-md border bg-card px-0.5", CONTROL)}
-        >
-          <Toggle active={view === "grid"} onClick={() => onView("grid")} label="网格视图">
-            <LayoutGrid className="size-3.5" />
-          </Toggle>
-          <Toggle active={view === "list"} onClick={() => onView("list")} label="列表视图">
-            <List className="size-3.5" />
-          </Toggle>
-        </div>
+        {/* The same component the detail page uses for its two controls: one
+            segmented control in the theme, not one per page. */}
+        <Segmented
+          label="切换视图"
+          value={view}
+          onChange={onView}
+          items={[
+            { value: "grid", label: "", title: "网格视图", icon: <LayoutGrid className="size-3.5" /> },
+            { value: "list", label: "", title: "列表视图", icon: <List className="size-3.5" /> },
+          ]}
+        />
       </div>
     </div>
   )
