@@ -8,7 +8,7 @@ import { bytes, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "
 import { cn } from "@/lib/utils"
 
 /** Which direction the plan meters, matching the node's traffic_mode. */
-function monthUsage(node: Node): number {
+export function monthUsage(node: Node): number {
   const { month_rx: rx, month_tx: tx } = node
   switch (node.traffic_mode) {
     case "up":
@@ -25,40 +25,71 @@ function monthUsage(node: Node): number {
 // A node that has reported once has told the hub its shape -- cores, memory,
 // disk -- and the hub retains its traffic totals whether connected or not. A node
 // that never connected is the only case with nothing to show.
-function deployed(node: Node) {
+export function deployed(node: Node) {
   return node.cpu_cores > 0 || node.mem_total > 0
 }
 
+// Three states, three colours. A node that never connected is not "down": it is
+// simply absent, so it stays grey rather than borrowing the red that means a
+// machine stopped answering.
+const DOT = {
+  ok: "bg-ok ring-2 ring-ok/25",
+  down: "bg-destructive ring-2 ring-destructive/20",
+  absent: "bg-muted-foreground/40",
+} as const
+
+function stateOf(node: Node) {
+  if (node.online) return "ok"
+  return deployed(node) ? "down" : "absent"
+}
+
 /**
- * The dot plus how long the machine has been up, or once it is gone, how long it
- * has been absent -- the first question asked of an offline node. Both are
- * durations, so the badge keeps its shape either way.
+ * How long the machine has been up, or once it is gone, how long it has been
+ * absent -- the first question asked of an offline node. Both are durations, so
+ * the line keeps its shape either way.
+ */
+export function statusLabel(node: Node) {
+  const down = node.last_seen ? Date.now() / 1000 - node.last_seen : 0
+  if (node.online) return `在线 ${node.metrics ? uptime(node.metrics.uptime) : ""}`.trim()
+  return deployed(node) ? `离线 ${down >= 60 ? uptime(down) : ""}`.trim() : "未接入"
+}
+
+/** The dot on its own, for the line the card draws the name on. */
+export function StatusDot({ node }: { node: Node }) {
+  return <span className={cn("size-1.5 shrink-0 rounded-full", DOT[stateOf(node)])} />
+}
+
+/**
+ * The dot and the duration welded into one chip, which is what the detail page
+ * wants in its row of chips. The card wants them apart -- dot against the name,
+ * duration on the muted line below -- so both shapes exist.
  */
 export function Status({ node }: { node: Node }) {
-  const down = node.last_seen ? Date.now() / 1000 - node.last_seen : 0
-  const label = node.online
-    ? `在线 ${node.metrics ? uptime(node.metrics.uptime) : ""}`
-    : deployed(node)
-      ? `离线 ${down >= 60 ? uptime(down) : ""}`
-      : "未接入"
   return (
     // Muted once it stops reporting: the figures on the page are genuine, merely
-    // no longer current.
+    // no longer current. The dot keeps its colour, because "which of these is
+    // down" is the question the page is opened to answer.
+    //
+    // overflow-visible undoes the badge's own clipping, which would otherwise
+    // cut the halo off the dot.
     <Badge
       variant="outline"
-      className={cn("tnum shrink-0 gap-1.5 font-normal", !node.online && "text-muted-foreground")}
+      className={cn("tnum shrink-0 gap-1.5 overflow-visible font-normal", !node.online && "text-muted-foreground")}
     >
-      <span className={cn("size-1.5 rounded-full", node.online ? "bg-foreground" : "bg-muted-foreground/40")} />
-      {label.trim()}
+      <StatusDot node={node} />
+      {statusLabel(node)}
     </Badge>
   )
 }
 
-/** Where the machine is, in the same shape as the badge next to it. */
+/** Where the machine is, as a tinted chip rather than a second outline. */
 export function Country({ node }: { node: Node }) {
   if (!node.country) return null
   return (
-    <Badge variant="outline" className="shrink-0 font-normal text-muted-foreground">
+    <Badge
+      variant="outline"
+      className="shrink-0 rounded-md border-transparent bg-tag font-normal text-tag-foreground"
+    >
       {node.country}
     </Badge>
   )
@@ -76,10 +107,20 @@ function trafficFoot(node: Node) {
 // blank corner asserts neither.
 function Expiry({ node }: { node: Node }) {
   const days = daysUntil(node.expires_at)
-  if (days === null) return <span className="text-xs text-muted-foreground" title="永不到期">{FOREVER}</span>
-  const tone = days < 0 ? "text-destructive" : days <= 7 ? "text-warn" : "text-muted-foreground"
+  // leading-6 rather than the text-xs default of leading-4: the name beside it
+  // sets a 24px line box, and matching it is what puts the two baselines on one
+  // line. Sharing the top edge is not enough when the boxes are different heights.
+  if (days === null)
+    return (
+      <span className="text-xs leading-6 text-muted-foreground" title="永不到期">
+        {FOREVER}
+      </span>
+    )
+  // The darker twins of the amber and red fills: #f59e0b on white is 2.2:1,
+  // which carries as a bar and not as a word.
+  const tone = days < 0 ? "text-danger-fg" : days <= 7 ? "text-warn-fg" : "text-muted-foreground"
   return (
-    <span className={cn("tnum text-xs", tone)}>
+    <span className={cn("tnum text-xs leading-6", tone)}>
       {days < 0 ? `已过期 ${-days} 天` : `${days} 天后到期`}
     </span>
   )
@@ -95,28 +136,34 @@ export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
       // OS line below does not wrap, so on a phone the card would grow past its
       // column and scroll the page sideways. The truncate inside only takes effect
       // once the card is allowed to be narrower.
-      className="min-w-0 cursor-pointer gap-0 p-4 transition-colors hover:border-ring"
+      className="min-w-0 cursor-pointer gap-0 p-4 transition hover:border-primary/40 hover:shadow-card-hover focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
+          {/* The dot rides on the name's line, which is where the reference panel
+              puts it. The name keeps that line almost entirely: sharing it with
+              the state chip left about eleven characters before the ellipsis and
+              cut the longer hostnames in half. */}
           <div className="flex min-w-0 items-center gap-1.5">
-            <h3 className="truncate font-medium">{node.name}</h3>
+            <StatusDot node={node} />
+            <h3 className="truncate font-semibold">{node.name}</h3>
             <Country node={node} />
           </div>
+          {/* With the chip folded into the line above, the muted second line has
+              the width to carry the state and the machine's shape together. */}
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            {node.os ? osName(node.os) : "等待首次上报"}
+            {statusLabel(node)}
+            {node.os ? ` · ${osName(node.os)}` : " · 等待首次上报"}
             {node.virt && node.virt !== "none" ? ` · ${node.virt}` : ""}
             {node.arch ? ` · ${node.arch}` : ""}
           </p>
         </div>
-        {/* State right, identity left, one line each. */}
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <Status node={node} />
-          <Expiry node={node} />
-        </div>
+        {/* Expiry keeps the top-right corner: it is the one figure on the card
+            with a deadline attached. */}
+        <Expiry node={node} />
       </div>
 
       {/* One layout for both states: a disconnected node still knows its
@@ -124,7 +171,10 @@ export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
           the live figures blank beats a stretched card with one line in it. */}
       {deployed(node) ? (
         <>
-          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4">
+          {/* No rules between the blocks. A 20px gap against the 16px inside each of
+            them groups the figures by rhythm instead, which is what the two hairlines
+            were doing while also cutting the card into three. */}
+          <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4">
             {/* The core count belongs beside the word CPU: it is what the
                 percentage and the load averages are both measured against. */}
             <Meter
@@ -150,7 +200,7 @@ export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
             />
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t pt-4 text-xs">
+          <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
             <span className="tnum inline-flex items-center gap-1.5">
               <ArrowDown className="size-3 text-muted-foreground" />
               {m ? rate(m.net_rx) : "—"}

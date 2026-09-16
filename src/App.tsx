@@ -2,10 +2,13 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react"
 import { Moon, Sun, Wrench } from "lucide-react"
 
 import { NodeCard } from "@/components/NodeCard"
+import { NodeTable } from "@/components/NodeTable"
 import { Summary } from "@/components/Summary"
+import { Toolbar, type View } from "@/components/Toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api, useNodes, type Node } from "@/lib/api"
+import { api, useNodes } from "@/lib/api"
+import { GROUP_KEYS, groupNodes, matches, type FilterKey, type Group, type GroupKey } from "@/lib/group"
 
 type Me = { authed: boolean; github: boolean; site_name: string; public_page: boolean }
 
@@ -51,12 +54,42 @@ function useTheme() {
   return [dark, () => setDark((d) => !d)] as const
 }
 
+/** A preference, not a route: which view you left on is where you come back to. */
+function useView() {
+  const [view, setView] = useState<View>(() => (localStorage.getItem("view") === "list" ? "list" : "grid"))
+  useEffect(() => {
+    localStorage.setItem("view", view)
+  }, [view])
+  return [view, setView] as const
+}
+
+/**
+ * Same idea for the grouping key, with one difference: "不分组" is stored as the
+ * absence of the key rather than as the string, so a stale value cannot silently
+ * become a group nobody chose.
+ */
+function useGroup() {
+  const [group, setGroup] = useState<GroupKey | null>(() => {
+    const saved = localStorage.getItem("group")
+    return GROUP_KEYS.some((g) => g.key === saved) ? (saved as GroupKey) : null
+  })
+  useEffect(() => {
+    if (group) localStorage.setItem("group", group)
+    else localStorage.removeItem("group")
+  }, [group])
+  return [group, setGroup] as const
+}
+
 export default function App() {
   const [dark, toggleTheme] = useTheme()
   const [me, setMe] = useState<Me | null>(null)
   const [meError, setMeError] = useState("")
   const { nodes, error, closed } = useNodes()
   const [open, go] = useNodeRoute()
+  const [view, setView] = useView()
+  const [group, setGroup] = useGroup()
+  const [query, setQuery] = useState("")
+  const [filters, setFilters] = useState<FilterKey[]>([])
 
   const loadMe = useCallback(() => {
     // `|| "..."` because an empty message reads as no error: api() falls back to
@@ -90,12 +123,31 @@ export default function App() {
   }, [me])
 
   const sorted = [...(nodes ?? [])].sort((a, b) => a.sort - b.sort || a.id - b.id)
+  // Narrow first, group second. The other order leaves empty headings behind for
+  // every group the filter emptied.
+  //
+  // The query is a substring match over the things a node is named by, so
+  // "debian", "us" and a hostname fragment all work without a query language.
+  const needle = query.trim().toLowerCase()
+  const filtered = sorted.filter(
+    (n) =>
+      matches(n, filters) &&
+      (needle === "" ||
+        [n.name, n.country, n.os, n.virt, n.arch].some((f) => (f || "").toLowerCase().includes(needle))),
+  )
+  const groups: Group[] = group ? groupNodes(filtered, group) : [{ label: null, nodes: filtered }]
   const selected = sorted.find((n) => n.id === open)
 
   // `/node/{id}` is a page people bookmark and share, so the tab needs the node's
   // name. The site name rather than a fixed string, since the hub lets an operator
   // rename the site.
   useEffect(() => {
+    // Assigning document.title from an effect is the documented way to set the
+    // page title -- there is no declarative equivalent in React itself. The
+    // React Compiler's immutability rule flags the outer-scope assignment anyway,
+    // the same over-strictness the sibling `react/purity` rule is switched off
+    // for in .oxlintrc.json.
+    // oxlint-disable-next-line react/immutability
     document.title = [selected?.name, me?.site_name || "Monitor"].filter(Boolean).join(" · ")
   }, [selected?.name, me?.site_name])
 
@@ -112,11 +164,14 @@ export default function App() {
 
   return (
     <div className="min-h-svh">
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur">
         <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3 sm:px-6">
           {/* The site name is the way back to the list, so a node page needs
               no back button of its own. */}
-          <button className="font-semibold transition-opacity hover:opacity-70" onClick={() => go(null)}>
+          <button
+            className="rounded-md text-base font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+            onClick={() => go(null)}
+          >
             {me.site_name || "Monitor"}
           </button>
           <div className="flex-1" />
@@ -133,8 +188,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1400px] space-y-5 px-4 py-4 sm:px-6">
-        {error && <p className="text-sm text-destructive">{error}</p>}
+      <main className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6">
+        {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
 
         {open !== null ? (
           !nodes ? (
@@ -157,15 +212,52 @@ export default function App() {
         ) : (
           <>
             <Summary nodes={sorted} />
-            {sorted.length === 0 ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">还没有节点</p>
-            ) : (
-              <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {sorted.map((n: Node) => (
-                  <NodeCard key={n.id} node={n} onOpen={() => go(n.id)} />
-                ))}
-              </div>
-            )}
+            {/* Ten pixels either side of the toolbar, not twenty. It belongs to
+                the list it acts on, so the page's own rhythm between sections
+                would read as a break the toolbar is not. */}
+            <div className="mt-2.5 space-y-2.5">
+              <Toolbar
+                nodes={sorted}
+                counts={{ shown: filtered.length, total: sorted.length }}
+                view={view}
+                onView={setView}
+                query={query}
+                onQuery={setQuery}
+                filters={filters}
+                onFilters={setFilters}
+                group={group}
+                onGroup={setGroup}
+              />
+              {filtered.length === 0 ? (
+                <p className="py-16 text-center text-sm text-muted-foreground">
+                  {/* Two empties, two causes: an empty fleet is not a filter that
+                      matched nothing, and only one of them is the visitor's doing. */}
+                  {sorted.length === 0 ? "还没有节点" : "没有符合条件的节点"}
+                </p>
+              ) : view === "list" ? (
+                <NodeTable groups={groups} onOpen={go} />
+              ) : (
+                <div className="space-y-6">
+                  {groups.map((g) => (
+                    <section key={g.label ?? "__all"} className="space-y-3">
+                      {g.label !== null && (
+                        // Sticky under the page header. The offset is the header's
+                        // height and has to be kept in step with it by hand.
+                        <h2 className="sticky top-[57px] z-[5] flex items-center gap-2 bg-background/85 px-1 py-1 text-xs font-medium backdrop-blur">
+                          {g.label}
+                          <span className="tnum font-normal text-muted-foreground">{g.nodes.length} 台</span>
+                        </h2>
+                      )}
+                      <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        {g.nodes.map((n) => (
+                          <NodeCard key={n.id} node={n} onOpen={() => go(n.id)} />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
       </main>

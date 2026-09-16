@@ -67,19 +67,23 @@ const SERIES = { dot: false as const, strokeWidth: 1.5, isAnimationActive: false
 // 28px, placing a CPU spike and the network spike that caused it at different x.
 const Y_WIDTH = 68
 
-// The palette is greyscale, so lightness alone is exhausted after two or three
-// series and the dash pattern carries the rest.
-// ponytail: the dash period is shorter than the jitter once every ping in the
-// window is on the chart, so at the day range a dotted line and a dashed one both
-// read as texture and only lightness separates them. A muted colour palette was
-// built and measured but not adopted; restoring it means five oklch pairs and
-// dropping `dash`.
+// One hue per probe. Upstream shipped this in greyscale, where the dash pattern
+// had to carry what lightness could not -- and where, by its own note below, a
+// dotted line and a dashed one both collapsed into texture at the day range.
+// This fork restored the colour palette those tokens were always pointing at, so
+// hue separates the series now and the dash is pure noise on top of it. The
+// consequence is a solid line, which is what reads at a glance on a panel meant
+// to be read at a glance.
+//
+// The old note, kept because the problem it describes is worth not
+// rediscovering: a muted colour palette was built and measured upstream but not
+// adopted, because greyscale was the house style.
 const PALETTE = [
-  { stroke: "var(--color-chart-1)", dash: undefined },
-  { stroke: "var(--color-chart-3)", dash: "6 3" },
-  { stroke: "var(--color-chart-2)", dash: "2 3" },
-  { stroke: "var(--color-chart-4)", dash: "10 4 2 4" },
-  { stroke: "var(--color-chart-5)", dash: "1 4" },
+  "var(--color-chart-1)",
+  "var(--color-chart-3)",
+  "var(--color-chart-2)",
+  "var(--color-chart-4)",
+  "var(--color-chart-5)",
 ]
 
 const TABS = [
@@ -458,7 +462,7 @@ export function NodeDetail({ node }: { node: Node }) {
                           key={`band${s.id}`}
                           dataKey={`b${s.id}`}
                           stroke="none"
-                          fill={style(s.id).stroke}
+                          fill={style(s.id)}
                           fillOpacity={0.16}
                           isAnimationActive={false}
                           tooltipType="none"
@@ -471,8 +475,7 @@ export function NodeDetail({ node }: { node: Node }) {
                         key={s.id}
                         dataKey={`${smooth ? "s" : "t"}${s.id}`}
                         name={s.name}
-                        stroke={style(s.id).stroke}
-                        strokeDasharray={style(s.id).dash}
+                        stroke={style(s.id)}
                         {...SERIES}
                         connectNulls
                       />
@@ -510,15 +513,14 @@ export function NodeDetail({ node }: { node: Node }) {
                       shown ? "" : "opacity-40"
                     }`}
                   >
-                    {/* The swatch carries the same shade and dash as the line. */}
+                    {/* The swatch carries the same hue as the line. */}
                     <svg width="14" height="6" className="shrink-0" aria-hidden>
                       <line
                         x1="0"
                         y1="3"
                         x2="14"
                         y2="3"
-                        stroke={style(s.id).stroke}
-                        strokeDasharray={style(s.id).dash}
+                        stroke={style(s.id)}
                         strokeWidth="2"
                       />
                     </svg>
@@ -591,7 +593,7 @@ export function NodeDetail({ node }: { node: Node }) {
                   formatter={(v) => rate(Number(v))}
                   contentStyle={{ fontSize: 12 }}
                 />
-                <Line dataKey="net_rx" name="下行" stroke="var(--color-ok)" {...SERIES} />
+                <Line dataKey="net_rx" name="下行" stroke="var(--color-chart-2)" {...SERIES} />
                 <Line dataKey="net_tx" name="上行" stroke="var(--color-chart-1)" {...SERIES} />
               </LineChart>
             </ResponsiveContainer>

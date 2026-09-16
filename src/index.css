@@ -12,64 +12,111 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ---------------------------------------------------------------------------
+   Upstream ships this theme in pure greyscale, with severity carried by bar
+   weight alone and a note in the old tokens saying as much. This fork keeps the
+   layout and spends colour instead: a cool near-white ground with white cards,
+   state in green/amber/red so a glance can rank the fleet, and one blue accent
+   so anything interactive reads as interactive.
+
+   Colour alone is not allowed to be the only signal, and it is not: every
+   coloured figure keeps its word ("有线"/"离线", "丢包", "剩余") and its
+   number. The pairs below are split so both jobs stay legible -- a vivid fill
+   for dots and bars, a darker twin for the same hue used as small text. Every
+   text value is checked against WCAG AA (4.5:1) on the ground it sits on.
+--------------------------------------------------------------------------- */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0 0);
+  --radius: 0.75rem;
+
+  --background: oklch(0.979 0.003 264.5); /* #f7f8fa */
+  --foreground: oklch(0.253 0.030 267.4); /* #1c2231 -- 15.9:1 on white */
+  --card: oklch(1 0 0); /* #ffffff */
+  --card-foreground: oklch(0.253 0.030 267.4);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0 0);
-  --primary: oklch(0.18 0 0);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.18 0 0);
-  --muted: oklch(0.955 0 0);
-  --muted-foreground: oklch(0.52 0 0);
-  --accent: oklch(0.955 0 0);
-  --accent-foreground: oklch(0.18 0 0);
-  --destructive: oklch(0.3 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.62 0 0);
-  --chart-1: oklch(0.3 0 0);
-  --chart-2: oklch(0.45 0 0);
-  --chart-3: oklch(0.58 0 0);
-  --chart-4: oklch(0.7 0 0);
-  --chart-5: oklch(0.82 0 0);
-  /* Greyscale has no red or amber, so severity is carried by weight: the bar
-     darkens as it fills. */
-  --ok: oklch(0.62 0 0);
-  --warn: oklch(0.44 0 0);
+  --popover-foreground: oklch(0.253 0.030 267.4);
+
+  /* One accent, and it is deep -- shadcn/ui's Blue theme, quoted from their
+     registry rather than hand-tuned. This began as two roles: a brighter blue for
+     chrome (buttons, active tabs, focus rings) and a deeper one for data ink
+     (meter bars). The panel reads better as a single blue, and white on this value
+     is 7.9:1 where the brighter one managed 5.0:1. */
+  --primary: oklch(0.424 0.199 265.638); /* #193cb8 */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.967 0.006 264.5); /* #f2f4f8 */
+  --secondary-foreground: oklch(0.359 0.046 260.9);
+  --muted: oklch(0.964 0.006 264.5); /* #f1f3f7 */
+  --muted-foreground: oklch(0.544 0.035 265.1); /* #667085 -- 4.97:1 on white */
+  --accent: oklch(0.964 0.017 267.8); /* #eef3ff */
+  --accent-foreground: oklch(0.359 0.046 260.9);
+  --destructive: oklch(0.637 0.208 25.3); /* #ef4444 */
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.940 0.009 264.5); /* #e8ebf1 */
+  --input: oklch(0.940 0.009 264.5);
+  --ring: oklch(0.424 0.199 265.638);
+
+  /* Fills. Used for dots, meter bars and the packet-loss figure. */
+  --ok: oklch(0.723 0.192 149.6); /* #22c55e */
+  --warn: oklch(0.769 0.165 70.1); /* #f59e0b */
+  /* Text twins of the two above, dark enough to read as small type. */
+  --ok-fg: oklch(0.527 0.137 150.1); /* #15803d -- 5.02:1 */
+  --warn-fg: oklch(0.555 0.146 49.0); /* #b45309 -- 5.02:1 */
+  --danger-fg: oklch(0.577 0.215 27.3); /* #dc2626 -- 4.83:1 */
+
+  /* The pill behind a country or a tag: a tint, not a second accent. */
+  --tag: oklch(0.955 0.020 267.3); /* #eaf0fe */
+  --tag-foreground: oklch(0.503 0.162 266.7); /* #3a5bbf -- 5.36:1 on tag */
+
+  /* Real hues, unlike the greyscale ramp they replace. NodeDetail reads these
+     straight out of the SVG, so the charts pick the palette up on their own. */
+  --chart-1: oklch(0.424 0.199 265.638); /* the accent: a chart line and a card meter are one blue */
+  --chart-2: oklch(0.723 0.192 149.6); /* green */
+  --chart-3: oklch(0.769 0.165 70.1); /* amber */
+  --chart-4: oklch(0.606 0.219 292.7); /* violet */
+  --chart-5: oklch(0.715 0.126 215.2); /* cyan */
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.2 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.2 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.92 0 0);
-  --primary-foreground: oklch(0.2 0 0);
-  --secondary: oklch(0.27 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.27 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent: oklch(0.27 0 0);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.95 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.55 0 0);
-  --chart-1: oklch(0.95 0 0);
-  --chart-2: oklch(0.82 0 0);
-  --chart-3: oklch(0.68 0 0);
-  --chart-4: oklch(0.54 0 0);
-  --chart-5: oklch(0.42 0 0);
-  /* Inverted against the dark ground: the fuller the bar, the brighter. */
-  --ok: oklch(0.62 0 0);
-  --warn: oklch(0.79 0 0);
+  --background: oklch(0.182 0.013 264.2); /* #0f1218 */
+  --foreground: oklch(0.942 0.010 261.8); /* #e8ecf3 -- 14.7:1 on card */
+  --card: oklch(0.217 0.017 264.1); /* #161a22 */
+  --card-foreground: oklch(0.942 0.010 261.8);
+  --popover: oklch(0.217 0.017 264.1);
+  --popover-foreground: oklch(0.942 0.010 261.8);
+
+  /* Brighter than the light theme's accent for the same reason the fills are: on a
+     dark ground the colour carries the contrast, so the light theme's deep blue
+     would read as almost black. */
+  --primary: oklch(0.662 0.179 264.6); /* #5b8cff */
+  --primary-foreground: oklch(0.182 0.013 264.2);
+  --secondary: oklch(0.259 0.021 260.6); /* #1e242e */
+  --secondary-foreground: oklch(0.869 0.020 252.9);
+  --muted: oklch(0.259 0.021 260.6);
+  --muted-foreground: oklch(0.716 0.027 261.1); /* #9aa4b5 -- 6.93:1 on card */
+  --accent: oklch(0.265 0.034 264.8);
+  --accent-foreground: oklch(0.942 0.010 261.8);
+  --destructive: oklch(0.711 0.166 22.2); /* #f87171 */
+  --destructive-foreground: oklch(0.182 0.013 264.2);
+  /* Solid rather than a 12% white wash: a dark card needs a border it can see. */
+  --border: oklch(0.315 0.026 260.1); /* #2a323f */
+  --input: oklch(0.315 0.026 260.1);
+  --ring: oklch(0.662 0.179 264.6);
+
+  /* Inverted role against the light theme: on a dark ground the fills are the
+     bright ones and the text twins are brighter still. */
+  --ok: oklch(0.773 0.153 163.2); /* #34d399 */
+  --warn: oklch(0.837 0.164 84.4); /* #fbbf24 */
+  --ok-fg: oklch(0.800 0.182 151.7); /* #4ade80 */
+  --warn-fg: oklch(0.879 0.153 91.6); /* #fcd34d */
+  --danger-fg: oklch(0.808 0.103 19.6); /* #fca5a5 */
+
+  --tag: oklch(0.283 0.049 264.0); /* #1d2942 */
+  --tag-foreground: oklch(0.775 0.114 265.6); /* #93b4ff -- 8.48:1 on tag */
+
+  --chart-1: oklch(0.662 0.179 264.6);
+  --chart-2: oklch(0.773 0.153 163.2);
+  --chart-3: oklch(0.837 0.164 84.4);
+  --chart-4: oklch(0.709 0.159 293.5); /* #a78bfa */
+  --chart-5: oklch(0.797 0.134 211.5); /* #22d3ee */
 }
 
 @theme inline {
@@ -92,6 +139,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -102,6 +150,20 @@
   --color-chart-5: var(--chart-5);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
+  --color-ok-fg: var(--ok-fg);
+  --color-warn-fg: var(--warn-fg);
+  --color-danger-fg: var(--danger-fg);
+  --color-tag: var(--tag);
+  --color-tag-foreground: var(--tag-foreground);
+}
+
+/* Outside `@theme inline`, so the utilities read var(--shadow-card) at use time
+   and `.dark` below can retune them. Inlined, the dark values would have been
+   baked out of reach at build time. */
+@theme {
+  --shadow-card: 0 1px 2px 0 rgb(16 24 40 / 4%), 0 1px 3px -1px rgb(16 24 40 / 7%);
+  --shadow-card-hover: 0 6px 16px -4px rgb(16 24 40 / 10%), 0 2px 6px -2px rgb(16 24 40 / 6%);
+  --shadow-pop: 0 12px 32px -8px rgb(16 24 40 / 16%), 0 4px 10px -4px rgb(16 24 40 / 8%);
 }
 
 @layer base {
@@ -110,7 +172,20 @@
      whose content exceeds the fold widens the page. */
   html { scrollbar-gutter: stable; }
   body { @apply bg-background text-foreground; }
+  /* A shadow this soft is invisible on a dark ground; depth there comes from the
+     border, so the shadow only has to stay out of the way. */
+  .dark {
+    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 30%), 0 1px 3px -1px rgb(0 0 0 / 40%);
+    --shadow-card-hover: 0 8px 20px -6px rgb(0 0 0 / 55%), 0 2px 8px -2px rgb(0 0 0 / 45%);
+    --shadow-pop: 0 16px 40px -10px rgb(0 0 0 / 65%), 0 4px 12px -4px rgb(0 0 0 / 50%);
+  }
 }
 
 /* Tabular figures keep live numbers from shifting as they update. */
 .tnum { font-variant-numeric: tabular-nums; }
+
+/* Respect a reader who asked for less motion: the meter's width transition and
+   the card's hover lift are both decoration. */
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
