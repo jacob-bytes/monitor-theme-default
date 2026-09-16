@@ -8,7 +8,7 @@ import { Toolbar, type View } from "@/components/Toolbar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api, useNodes } from "@/lib/api"
-import { GROUP_KEYS, groupNodes, matches, type FilterKey, type Group, type GroupKey } from "@/lib/group"
+import { groupNames, inGroup, matches, type FilterKey } from "@/lib/group"
 
 type Me = { authed: boolean; github: boolean; site_name: string; public_page: boolean }
 
@@ -63,23 +63,6 @@ function useView() {
   return [view, setView] as const
 }
 
-/**
- * Same idea for the grouping key, with one difference: "不分组" is stored as the
- * absence of the key rather than as the string, so a stale value cannot silently
- * become a group nobody chose.
- */
-function useGroup() {
-  const [group, setGroup] = useState<GroupKey | null>(() => {
-    const saved = localStorage.getItem("group")
-    return GROUP_KEYS.some((g) => g.key === saved) ? (saved as GroupKey) : null
-  })
-  useEffect(() => {
-    if (group) localStorage.setItem("group", group)
-    else localStorage.removeItem("group")
-  }, [group])
-  return [group, setGroup] as const
-}
-
 export default function App() {
   const [dark, toggleTheme] = useTheme()
   const [me, setMe] = useState<Me | null>(null)
@@ -87,7 +70,9 @@ export default function App() {
   const { nodes, error, closed } = useNodes()
   const [open, go] = useNodeRoute()
   const [view, setView] = useView()
-  const [group, setGroup] = useGroup()
+  // A group filter, not persisted -- unlike the view. Left selected from an
+  // earlier visit it would read as machines having gone missing.
+  const [group, setGroup] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [filters, setFilters] = useState<FilterKey[]>([])
 
@@ -129,13 +114,20 @@ export default function App() {
   // The query is a substring match over the things a node is named by, so
   // "debian", "us" and a hostname fragment all work without a query language.
   const needle = query.trim().toLowerCase()
+  const names = groupNames(sorted)
+  // A group the fleet no longer carries falls back to 全部节点, rather than showing
+  // an empty list behind a tab that should not still be selected. Derived during
+  // render, so no effect has to run afterwards to correct it.
+  const activeGroup = group !== null && names.includes(group) ? group : null
+  // Three independent narrowings, applied in one pass: group, attention filters,
+  // free-text search. None of them knows about the others.
   const filtered = sorted.filter(
     (n) =>
+      inGroup(n, activeGroup) &&
       matches(n, filters) &&
       (needle === "" ||
         [n.name, n.country, n.os, n.virt, n.arch].some((f) => (f || "").toLowerCase().includes(needle))),
   )
-  const groups: Group[] = group ? groupNodes(filtered, group) : [{ label: null, nodes: filtered }]
   const selected = sorted.find((n) => n.id === open)
 
   // `/node/{id}` is a page people bookmark and share, so the tab needs the node's
@@ -225,7 +217,8 @@ export default function App() {
                 onQuery={setQuery}
                 filters={filters}
                 onFilters={setFilters}
-                group={group}
+                groups={names}
+                group={activeGroup}
                 onGroup={setGroup}
               />
               {filtered.length === 0 ? (
@@ -235,25 +228,11 @@ export default function App() {
                   {sorted.length === 0 ? "还没有节点" : "没有符合条件的节点"}
                 </p>
               ) : view === "list" ? (
-                <NodeTable groups={groups} onOpen={go} />
+                <NodeTable nodes={filtered} onOpen={go} />
               ) : (
-                <div className="space-y-6">
-                  {groups.map((g) => (
-                    <section key={g.label ?? "__all"} className="space-y-3">
-                      {g.label !== null && (
-                        // Sticky under the page header. The offset is the header's
-                        // height and has to be kept in step with it by hand.
-                        <h2 className="sticky top-[57px] z-[5] flex items-center gap-2 bg-background/85 px-1 py-1 text-xs font-medium backdrop-blur">
-                          {g.label}
-                          <span className="tnum font-normal text-muted-foreground">{g.nodes.length} 台</span>
-                        </h2>
-                      )}
-                      <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {g.nodes.map((n) => (
-                          <NodeCard key={n.id} node={n} onOpen={() => go(n.id)} />
-                        ))}
-                      </div>
-                    </section>
+                <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filtered.map((n) => (
+                    <NodeCard key={n.id} node={n} onOpen={() => go(n.id)} />
                   ))}
                 </div>
               )}

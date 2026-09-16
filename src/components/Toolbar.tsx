@@ -1,13 +1,10 @@
 import { LayoutGrid, List, Search, X } from "lucide-react"
 
-import { Select } from "@/components/ui/select"
 import type { Node } from "@/lib/api"
-import { FILTERS, GROUP_KEYS, type FilterKey, type GroupKey } from "@/lib/group"
+import { FILTERS, type FilterKey } from "@/lib/group"
 import { cn } from "@/lib/utils"
 
 export type View = "grid" | "list"
-
-const ALL = "all"
 
 /**
  * Every control in this row is the same height. Three different heights read as
@@ -37,14 +34,39 @@ function Toggle({ active, onClick, label, children }: {
 }
 
 /**
+ * A group tab. Plain text with the active one in the accent colour, which is the
+ * shape the reference panel uses -- a group is a place, not a control that needs
+ * a box drawn around it.
+ */
+function GroupTab({ active, onClick, children }: {
+  active: boolean; onClick: () => void; children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      // text-xs, not text-sm: the second size made the tabs the loudest thing in a
+      // row of otherwise 12px controls. Weight is constant so switching tabs does
+      // not reflow the row -- the colour is the whole difference.
+      className={cn(
+        "rounded text-xs font-medium whitespace-nowrap transition-colors",
+        active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+/**
  * The band between the summary and the fleet.
  *
  * No totals here: the four cards above already state the fleet's size and
- * throughput, and repeating them in smaller type is noise. What this row holds is
- * the two things that act on the list below -- how it is grouped, and which part
- * of it you are looking at.
+ * throughput. What this row holds is the three things that act on the list below
+ * -- which group is in view, which attention filter is on, and how it is laid out.
  */
-export function Toolbar({ nodes, counts, view, onView, query, onQuery, filters, onFilters, group, onGroup }: {
+export function Toolbar({ nodes, counts, view, onView, query, onQuery, filters, onFilters, groups, group, onGroup }: {
   nodes: Node[]
   counts: { shown: number; total: number }
   view: View
@@ -53,8 +75,10 @@ export function Toolbar({ nodes, counts, view, onView, query, onQuery, filters, 
   onQuery: (query: string) => void
   filters: FilterKey[]
   onFilters: (filters: FilterKey[]) => void
-  group: GroupKey | null
-  onGroup: (group: GroupKey | null) => void
+  /** Empty until the hub carries a group field; the tabs are hidden until then. */
+  groups: string[]
+  group: string | null
+  onGroup: (group: string | null) => void
 }) {
   const toggleFilter = (key: FilterKey) =>
     onFilters(filters.includes(key) ? filters.filter((k) => k !== key) : [...filters, key])
@@ -67,18 +91,27 @@ export function Toolbar({ nodes, counts, view, onView, query, onQuery, filters, 
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
-      <Select
-        label="分组"
-        value={group ?? ALL}
-        options={[{ value: ALL, label: "不分组" }, ...GROUP_KEYS.map((g) => ({ value: g.key, label: g.label }))]}
-        onChange={(v) => onGroup(v === ALL ? null : (v as GroupKey))}
-        className="w-32 shrink-0"
-      />
+      {/* Only once the fleet actually carries groups. A lone "全部节点" tab would
+          be a control that cannot do anything, and the row is the widest thing
+          here -- it should not cost space until it earns it. */}
+      {groups.length > 0 && (
+        <>
+          <div role="group" aria-label="节点分组" className={cn("flex shrink-0 items-center gap-3.5", CONTROL)}>
+            <GroupTab active={group === null} onClick={() => onGroup(null)}>
+              全部节点
+            </GroupTab>
+            {groups.map((name) => (
+              <GroupTab key={name} active={group === name} onClick={() => onGroup(name)}>
+                {name}
+              </GroupTab>
+            ))}
+          </div>
+          <span className="h-5 w-px shrink-0 bg-border" aria-hidden />
+        </>
+      )}
 
-      <span className={cn("w-px shrink-0 bg-border", "h-5")} aria-hidden />
-
-      {/* One container for the whole set, the same shape as the view toggle on
-          the right -- they are both segmented controls and should look like it. */}
+      {/* One container for the whole set, the same shape as the view toggle on the
+          right -- they are both segmented controls and should look like it. */}
       <div
         role="group"
         aria-label="筛选节点"
@@ -100,7 +133,9 @@ export function Toolbar({ nodes, counts, view, onView, query, onQuery, filters, 
               {f.label}
               <span
                 className={cn(
-                  "tnum rounded-full px-1 text-[10px] leading-4 font-medium",
+                  // Same size as the label beside it: a 10px count inside a 12px
+                  // chip was the other half of the mismatch.
+                  "tnum rounded-full px-1.5 text-xs leading-[18px] font-medium",
                   active ? "bg-primary/15 text-primary" : "bg-muted text-foreground",
                 )}
               >

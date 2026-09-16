@@ -128,14 +128,23 @@ export function Summary({ nodes }: { nodes: Node[] }) {
         <div className={cn("mt-auto truncate pt-1 text-xs", tone)}>{busiest ? busiest.name : "无在线节点"}</div>
       </Tile>
 
-      <Tile icon={ArrowDownUp} label="今日流量">
-        <Flow
-          down={bytes(sum((n) => n.day_rx))}
-          up={bytes(sum((n) => n.day_tx))}
-          className="mt-1 text-sm font-semibold"
-        />
-        <div className="mt-2 text-xs text-muted-foreground">总流量</div>
-        <Flow down={bytes(sum((n) => n.total_rx))} up={bytes(sum((n) => n.total_tx))} className="mt-0.5 text-sm" />
+      <Tile icon={ArrowDownUp} label="累计流量">
+        {/* One figure, in the same slot the other two cards put theirs. The day's
+            in and out belong in the footnote rather than in a second row of
+            figures: four numbers of equal weight is a table, not a summary. */}
+        <div className="tnum mt-1 text-xl font-semibold">{bytes(sum((n) => n.total_rx) + sum((n) => n.total_tx))}</div>
+        <div className="tnum mt-auto flex flex-wrap items-center gap-x-1.5 pt-1 text-xs text-muted-foreground">
+          <span>今日</span>
+          <span className="inline-flex items-center gap-0.5">
+            <ArrowDown className="size-3 shrink-0" />
+            {bytes(sum((n) => n.day_rx))}
+          </span>
+          <span aria-hidden>·</span>
+          <span className="inline-flex items-center gap-0.5">
+            <ArrowUp className="size-3 shrink-0" />
+            {bytes(sum((n) => n.day_tx))}
+          </span>
+        </div>
       </Tile>
 
       <Tile icon={Gauge} label="实时网速">

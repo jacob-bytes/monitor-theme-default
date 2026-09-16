@@ -1,62 +1,30 @@
 import type { Node } from "@/lib/api"
-import { CYCLES, daysUntil, osName } from "@/lib/format"
+import { daysUntil } from "@/lib/format"
 import { deployed } from "@/components/NodeCard"
 
 /**
- * Grouping keys that a node already carries. There is no operator-defined
- * category on the hub -- `remark` is panel-only by an explicit privacy contract
- * -- so a group is always derived from something the node reports about itself.
+ * Group tabs.
+ *
+ * A group is a name the hub attaches to a node -- the operator's own categories,
+ * not something derived here. Nothing sends that field yet, so `groupNames` comes
+ * back empty against a real hub and the tab row is not rendered at all: a lone
+ * "全部节点" tab would be a control that cannot do anything, the same objection as
+ * a total that only repeats the card above it.
+ *
+ * The field name has to match whatever the hub ends up calling it.
  */
-export type GroupKey = "os" | "virt" | "billing_cycle"
-
-export const GROUP_KEYS: { key: GroupKey; label: string }[] = [
-  { key: "os", label: "系统" },
-  { key: "virt", label: "虚拟化" },
-  { key: "billing_cycle", label: "计费周期" },
-]
-
-export type Group = { label: string | null; nodes: Node[] }
-
-const UNKNOWN = "未知"
-
-/** The bucket a node falls in for one key. Empty values share a single bucket. */
-function label(node: Node, key: GroupKey): string {
-  switch (key) {
-    case "os":
-      return node.os ? osName(node.os) : UNKNOWN
-    // `none` is "there is no virtualisation", which is a fact, not a gap in the
-    // data the way an empty distro string is.
-    case "virt":
-      return !node.virt || node.virt === "none" ? "物理机" : node.virt
-    case "billing_cycle":
-      return node.price > 0 ? (CYCLES[node.billing_cycle] ?? node.billing_cycle) : "免费"
+export function groupNames(nodes: Node[]): string[] {
+  const seen: string[] = []
+  for (const node of nodes) {
+    const name = node.group?.trim()
+    if (name && !seen.includes(name)) seen.push(name)
   }
+  return seen
 }
 
-/**
- * Buckets in an order that does not move.
- *
- * The page receives a frame every two seconds, so the ordering may only depend on
- * things a frame does not change: the label and how many nodes are in the group.
- * Ordering by a live figure -- mean CPU, say -- would reshuffle the whole page
- * twice a second.
- */
-export function groupNodes(nodes: Node[], key: GroupKey): Group[] {
-  const buckets = new Map<string, Node[]>()
-  for (const node of nodes) {
-    const name = label(node, key)
-    const bucket = buckets.get(name)
-    if (bucket) bucket.push(node)
-    else buckets.set(name, [node])
-  }
-  return [...buckets.entries()]
-    .map(([label, nodes]) => ({ label, nodes }))
-    .sort(
-      (a, b) =>
-        (a.label === UNKNOWN ? 1 : 0) - (b.label === UNKNOWN ? 1 : 0) ||
-        b.nodes.length - a.nodes.length ||
-        a.label.localeCompare(b.label, "zh"),
-    )
+/** The selected group, or `null` for 全部节点. */
+export function inGroup(node: Node, name: string | null): boolean {
+  return name === null || (node.group?.trim() ?? "") === name
 }
 
 /** One thing worth narrowing the fleet to. */

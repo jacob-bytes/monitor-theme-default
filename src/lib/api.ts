@@ -26,6 +26,12 @@ export type Node = {
   name: string
   sort: number
   public: boolean
+  /**
+   * The operator's own category -- 建站, 入口集群, whatever they call it. The hub
+   * does not carry this field yet; when it does, the panel's group tabs fill in
+   * on their own, and until then they are not rendered at all.
+   */
+  group?: string
   online: boolean
   /** ISO 3166-1 alpha-2, or empty when the hub could not locate the address. */
   country: string

@@ -1,10 +1,9 @@
-import { Fragment, useState } from "react"
+import { useState } from "react"
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
 
 import { Country, StatusDot, monthUsage, statusLabel } from "@/components/NodeCard"
 import type { Node } from "@/lib/api"
 import { CYCLES, FOREVER, bytes, daysUntil, money, osName, pair, percent, rate } from "@/lib/format"
-import type { Group } from "@/lib/group"
 import { cn } from "@/lib/utils"
 
 type SortKey = "name" | "cpu" | "mem" | "disk" | "traffic" | "expiry"
@@ -189,11 +188,11 @@ function sortNodes(nodes: Node[], { key, dir }: Sort): Node[] {
  * The fleet as a table: the same figures the cards carry, one row each, so a
  * column can be read down rather than each card read across.
  *
- * Grouping arrives as `groups` rather than as a second component: one table with
- * heading rows in its body, not one table per group, which would repeat the
- * header once per group. `label: null` is the ungrouped case.
+ * Groups are a filter, not a layout: the toolbar narrows the array before it
+ * arrives here, so this component stays a plain list of rows and cannot develop
+ * an opinion about grouping that the grid would then have to match.
  */
-export function NodeTable({ groups, onOpen }: { groups: Group[]; onOpen: (id: number) => void }) {
+export function NodeTable({ nodes, onOpen }: { nodes: Node[]; onOpen: (id: number) => void }) {
   const [sort, setSort] = useState<Sort>({ key: "order", dir: 1 })
 
   // A fresh column starts ascending; the same column again reverses it.
@@ -253,45 +252,33 @@ export function NodeTable({ groups, onOpen }: { groups: Group[]; onOpen: (id: nu
           </tr>
         </thead>
         <tbody>
-          {groups.map((group) => (
-            <Fragment key={group.label ?? "__all"}>
-              {group.label !== null && (
-                <tr className="border-b bg-muted/50">
-                  <th scope="colgroup" colSpan={COLUMNS.length} className="px-2.5 py-1.5 text-left text-xs font-medium">
-                    {group.label}
-                    <span className="tnum ml-2 font-normal text-muted-foreground">{group.nodes.length} 台</span>
-                  </th>
-                </tr>
-              )}
-              {sortNodes(group.nodes, sort).map((n) => (
-                <tr
-                  key={n.id}
-                  // Convenience for the pointer; the name cell's button below is the
-                  // control keyboard and screen-reader users actually reach.
-                  onClick={() => onOpen(n.id)}
-                  className="cursor-pointer border-b transition-colors last:border-0 hover:bg-accent/50"
-                >
-                  {COLUMNS.map((c, i) => (
-                    <td key={c.header} className={cn("overflow-hidden px-2.5 py-2.5", c.className)}>
-                      {i === 0 ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onOpen(n.id)
-                          }}
-                          className="flex w-full min-w-0 items-center gap-1.5 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                        >
-                          {c.cell(n)}
-                        </button>
-                      ) : (
-                        c.cell(n)
-                      )}
-                    </td>
-                  ))}
-                </tr>
+          {sortNodes(nodes, sort).map((n) => (
+            <tr
+              key={n.id}
+              // Convenience for the pointer; the name cell's button below is the
+              // control keyboard and screen-reader users actually reach.
+              onClick={() => onOpen(n.id)}
+              className="cursor-pointer border-b transition-colors last:border-0 hover:bg-accent/50"
+            >
+              {COLUMNS.map((c, i) => (
+                <td key={c.header} className={cn("overflow-hidden px-2.5 py-2.5", c.className)}>
+                  {i === 0 ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOpen(n.id)
+                      }}
+                      className="flex w-full min-w-0 items-center gap-1.5 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                    >
+                      {c.cell(n)}
+                    </button>
+                  ) : (
+                    c.cell(n)
+                  )}
+                </td>
               ))}
-            </Fragment>
+            </tr>
           ))}
         </tbody>
       </table>
