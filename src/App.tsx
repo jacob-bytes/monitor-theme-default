@@ -158,8 +158,9 @@ export default function App() {
     <div className="min-h-svh">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur">
         <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3 sm:px-6">
-          {/* The site name is the way back to the list, so a node page needs
-              no back button of its own. */}
+          {/* The site name is one way back to the list. The node page also carries
+              its own back arrow beside the name -- where the eye already is -- so
+              this note no longer claims it needs none. */}
           <button
             className="rounded-md text-base font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
             onClick={() => go(null)}
@@ -188,7 +189,7 @@ export default function App() {
             <Skeleton className="h-96" />
           ) : selected ? (
             <Suspense fallback={<Skeleton className="h-96" />}>
-              <NodeDetail node={selected} />
+              <NodeDetail node={selected} onBack={() => go(null)} />
             </Suspense>
           ) : (
             <p className="py-16 text-center text-sm text-muted-foreground">

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { median } from "d3-array"
+import { ArrowLeft } from "lucide-react"
 import {
   Area, AreaChart, Brush, CartesianGrid, ComposedChart, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Segmented } from "@/components/ui/segmented"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -169,7 +171,7 @@ function Fact({ label, value }: { label: string; value?: string | number | null 
   )
 }
 
-export function NodeDetail({ node }: { node: Node }) {
+export function NodeDetail({ node, onBack }: { node: Node; onBack: () => void }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("resources")
   // Each tab keeps its own range: a 7-day trend and a 1-hour trace answer
   // different questions.
@@ -329,6 +331,20 @@ export function NodeDetail({ node }: { node: Node }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
+        {/* The same ghost, icon-sized control the header uses for its own icon
+            buttons. -ml-2 pulls the glyph back onto the content edge: the button
+            carries 8px of padding of its own, which would otherwise sit the arrow
+            inside the column the cards below line up on. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onBack}
+          aria-label="返回节点列表"
+          title="返回节点列表"
+          className="-ml-2 shrink-0"
+        >
+          <ArrowLeft />
+        </Button>
         <h2 className="truncate text-lg font-medium">{node.name}</h2>
         <Country node={node} />
         <Status node={node} />
