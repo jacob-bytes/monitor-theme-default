@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Meter } from "@/components/Meter"
 import type { Node } from "@/lib/api"
-import { bytes, daysUntil, FOREVER, osName, pair, percent, rate, uptime } from "@/lib/format"
+import { bytes, CYCLES, daysUntil, FOREVER, money, osName, pair, percent, rate, uptime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 /** Which direction the plan meters, matching the node's traffic_mode. */
@@ -107,12 +107,9 @@ function trafficFoot(node: Node) {
 // blank corner asserts neither.
 function Expiry({ node }: { node: Node }) {
   const days = daysUntil(node.expires_at)
-  // leading-6 rather than the text-xs default of leading-4: the name beside it
-  // sets a 24px line box, and matching it is what puts the two baselines on one
-  // line. Sharing the top edge is not enough when the boxes are different heights.
   if (days === null)
     return (
-      <span className="text-xs leading-6 text-muted-foreground" title="永不到期">
+      <span className="text-xs text-muted-foreground" title="永不到期">
         {FOREVER}
       </span>
     )
@@ -120,8 +117,18 @@ function Expiry({ node }: { node: Node }) {
   // which carries as a bar and not as a word.
   const tone = days < 0 ? "text-danger-fg" : days <= 7 ? "text-warn-fg" : "text-muted-foreground"
   return (
-    <span className={cn("tnum text-xs leading-6", tone)}>
+    <span className={cn("tnum text-xs", tone)}>
       {days < 0 ? `已过期 ${-days} 天` : `${days} 天后到期`}
+    </span>
+  )
+}
+
+/** What the plan costs, in the same cell shape as the expiry beside it. */
+function Price({ node }: { node: Node }) {
+  if (node.price <= 0) return <span className="text-xs text-muted-foreground">免费</span>
+  return (
+    <span className="tnum truncate text-xs text-muted-foreground">
+      {money(node.price, node.currency)} / {CYCLES[node.billing_cycle] ?? node.billing_cycle}
     </span>
   )
 }
@@ -141,8 +148,7 @@ export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen())}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+      <div className="min-w-0">
           {/* The dot rides on the name's line, which is where the reference panel
               puts it. The name keeps that line almost entirely: sharing it with
               the state chip left about eleven characters before the ellipsis and
@@ -160,10 +166,6 @@ export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
             {node.virt && node.virt !== "none" ? ` · ${node.virt}` : ""}
             {node.arch ? ` · ${node.arch}` : ""}
           </p>
-        </div>
-        {/* Expiry keeps the top-right corner: it is the one figure on the card
-            with a deadline attached. */}
-        <Expiry node={node} />
       </div>
 
       {/* One layout for both states: a disconnected node still knows its
@@ -200,23 +202,30 @@ export function NodeCard({ node, onOpen }: { node: Node; onOpen: () => void }) {
             />
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          {/* Three columns read downwards: rate, lifetime total, then the deadline
+              and what it costs. Equal shares and one gutter, so the columns line up
+              instead of drifting apart. Down before up throughout, the order every
+              other figure on this page takes. */}
+          <div className="mt-5 grid grid-cols-3 gap-x-4 gap-y-2 text-xs">
             <span className="tnum inline-flex items-center gap-1.5">
-              <ArrowDown className="size-3 text-muted-foreground" />
+              <ArrowDown className="size-3 shrink-0 text-muted-foreground" />
               {m ? rate(m.net_rx) : "—"}
             </span>
+            <span className="tnum inline-flex items-center gap-1.5 text-muted-foreground">
+              <ArrowDown className="size-3 shrink-0" />
+              {bytes(node.total_rx)}
+            </span>
+            <Expiry node={node} />
+
             <span className="tnum inline-flex items-center gap-1.5">
-              <ArrowUp className="size-3 text-muted-foreground" />
+              <ArrowUp className="size-3 shrink-0 text-muted-foreground" />
               {m ? rate(m.net_tx) : "—"}
             </span>
             <span className="tnum inline-flex items-center gap-1.5 text-muted-foreground">
-              <ArrowDown className="size-3" />
-              {bytes(node.total_rx)}
-            </span>
-            <span className="tnum inline-flex items-center gap-1.5 text-muted-foreground">
-              <ArrowUp className="size-3" />
+              <ArrowUp className="size-3 shrink-0" />
               {bytes(node.total_tx)}
             </span>
+            <Price node={node} />
           </div>
         </>
       ) : (
