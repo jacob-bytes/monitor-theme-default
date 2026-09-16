@@ -98,6 +98,8 @@ eq(uptime(0), "—", "没上报过就不写时长")
 eq(uptime(90), "1 分", "不足一小时")
 eq(uptime(3 * 3600 + 25 * 60), "3 小时 25 分", "不足一天")
 eq(uptime(2 * 86400 + 5 * 3600), "2 天 5 小时", "超过一天不再写分钟")
+eq(uptime(2 * 86400), "2 天", "整天的零头不写")
+eq(uptime(3 * 3600), "3 小时", "整小时的零头不写")
 
 eq(osName("Debian GNU/Linux 12 (bookworm)"), "Debian 12", "发行版名去掉代号")
 eq(cpuName("Intel(R) Xeon(R) CPU E5-2680 8-Core Processor"), "Intel Xeon E5-2680", "CPU 名去掉商标和核数")
