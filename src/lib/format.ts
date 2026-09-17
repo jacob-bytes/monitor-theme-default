@@ -60,7 +60,12 @@ export function uptime(seconds: number): string {
   const d = Math.floor(seconds / 86400)
   const h = Math.floor((seconds % 86400) / 3600)
   const m = Math.floor((seconds % 3600) / 60)
-  return d > 0 ? `${d} 天 ${h} 小时` : h > 0 ? `${h} 小时 ${m} 分` : `${m} 分`
+  // Two units at most, and never a zero one. "48 天 0 小时" is a third of the
+  // width of the line it sits on for no information, and that line also has to
+  // carry the state and the shape of the machine.
+  if (d > 0) return h > 0 ? `${d} 天 ${h} 小时` : `${d} 天`
+  if (h > 0) return m > 0 ? `${h} 小时 ${m} 分` : `${h} 小时`
+  return `${m} 分`
 }
 
 /** Whole days until a date, negative once it has passed. */

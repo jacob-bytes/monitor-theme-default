@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { median } from "d3-array"
+import { ArrowLeft } from "lucide-react"
 import {
   Area, AreaChart, Brush, CartesianGrid, ComposedChart, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Segmented } from "@/components/ui/segmented"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Country, Status } from "@/components/NodeCard"
 import { api, type Node } from "@/lib/api"
@@ -67,19 +71,26 @@ const SERIES = { dot: false as const, strokeWidth: 1.5, isAnimationActive: false
 // 28px, placing a CPU spike and the network spike that caused it at different x.
 const Y_WIDTH = 68
 
-// The palette is greyscale, so lightness alone is exhausted after two or three
-// series and the dash pattern carries the rest.
-// ponytail: the dash period is shorter than the jitter once every ping in the
-// window is on the chart, so at the day range a dotted line and a dashed one both
-// read as texture and only lightness separates them. A muted colour palette was
-// built and measured but not adopted; restoring it means five oklch pairs and
-// dropping `dash`.
+// One hue per probe. Upstream shipped this in greyscale, where the dash pattern
+// had to carry what lightness could not -- and where, by its own note below, a
+// dotted line and a dashed one both collapsed into texture at the day range.
+// This fork restored the colour palette those tokens were always pointing at, so
+// hue separates the series now and the dash is pure noise on top of it. The
+// consequence is a solid line, which is what reads at a glance on a panel meant
+// to be read at a glance.
+//
+// The old note, kept because the problem it describes is worth not
+// rediscovering: a muted colour palette was built and measured upstream but not
+// adopted, because greyscale was the house style.
+// Blue, then violet, then cyan: the three probes most fleets run should be the
+// three easiest to tell apart. Green, amber and red are absent on purpose -- those
+// three mean state on this page, so a probe drawn in amber reads as a warning.
 const PALETTE = [
-  { stroke: "var(--color-chart-1)", dash: undefined },
-  { stroke: "var(--color-chart-3)", dash: "6 3" },
-  { stroke: "var(--color-chart-2)", dash: "2 3" },
-  { stroke: "var(--color-chart-4)", dash: "10 4 2 4" },
-  { stroke: "var(--color-chart-5)", dash: "1 4" },
+  "var(--color-chart-1)",
+  "var(--color-chart-4)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-5)",
 ]
 
 const TABS = [
@@ -87,25 +98,38 @@ const TABS = [
   { key: "latency", label: "网络延迟" },
 ] as const
 
+/**
+ * One chart, on its own surface. The panels used to lie flat on the page ground,
+ * which left four plots competing with the metadata above them for the same
+ * attention; a card gives each one an edge to sit inside, and the title moves into
+ * that card's header instead of floating over the plot.
+ */
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <h4 className="mb-2 text-xs font-medium text-muted-foreground">{title}</h4>
+    <Card className="gap-0 p-4">
+      <h4 className="mb-3 text-xs font-medium text-muted-foreground">{title}</h4>
       <div className="h-40 w-full text-muted-foreground">{children}</div>
-    </div>
+    </Card>
   )
 }
 
-function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
+/**
+ * The wash under an area line. One hue at two opacities rather than a flat fill: a
+ * constant 15% reads as a block of colour, while a gradient lets the line carry the
+ * shape and the fill only suggest the mass beneath it.
+ *
+ * The stop colour is written out rather than left to currentColor: inside a
+ * gradient, currentColor resolves against the gradient element itself, not against
+ * the shape that references it.
+ */
+function Wash({ id, color }: { id: string; color: string }) {
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-      }`}
-    >
-      {children}
-    </button>
+    <defs>
+      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={color} stopOpacity={0.24} />
+        <stop offset="100%" stopColor={color} stopOpacity={0} />
+      </linearGradient>
+    </defs>
   )
 }
 
@@ -147,7 +171,7 @@ function Fact({ label, value }: { label: string; value?: string | number | null 
   )
 }
 
-export function NodeDetail({ node }: { node: Node }) {
+export function NodeDetail({ node, onBack }: { node: Node; onBack: () => void }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("resources")
   // Each tab keeps its own range: a 7-day trend and a 1-hour trace answer
   // different questions.
@@ -307,6 +331,20 @@ export function NodeDetail({ node }: { node: Node }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
+        {/* The same ghost, icon-sized control the header uses for its own icon
+            buttons. -ml-2 pulls the glyph back onto the content edge: the button
+            carries 8px of padding of its own, which would otherwise sit the arrow
+            inside the column the cards below line up on. */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onBack}
+          aria-label="返回节点列表"
+          title="返回节点列表"
+          className="-ml-2 shrink-0"
+        >
+          <ArrowLeft />
+        </Button>
         <h2 className="truncate text-lg font-medium">{node.name}</h2>
         <Country node={node} />
         <Status node={node} />
@@ -321,7 +359,8 @@ export function NodeDetail({ node }: { node: Node }) {
           out is one machine's spec sheet, and a box around a single topic is
           just a box. Three across at lg, two at md, one on a phone -- a kernel
           version or a CPU model needs about 270px to stay whole. */}
-      <dl className="grid gap-x-6 gap-y-3 md:grid-cols-2 lg:grid-cols-3">
+      <Card className="gap-0 p-4">
+        <dl className="grid gap-x-6 gap-y-3 md:grid-cols-2 lg:grid-cols-3">
         <Fact label="系统" value={[osName(node.os), node.kernel].filter(Boolean).join(" · ")} />
         <Fact
           label="CPU"
@@ -344,44 +383,42 @@ export function NodeDetail({ node }: { node: Node }) {
             node.expires_at ? `${node.expires_at} 到期` : FOREVER,
           ].join(" · ")}
         />
-      </dl>
+        </dl>
+      </Card>
 
       {node.remark && (
-        <p className="rounded-md bg-muted px-3 py-2 text-sm whitespace-pre-wrap">{node.remark}</p>
+        <Card className="gap-0 border-dashed bg-muted/40 p-4">
+          <p className="text-sm whitespace-pre-wrap">{node.remark}</p>
+        </Card>
       )}
 
-      <div className="space-y-2 border-t pt-4">
-        <div className="flex gap-1">
-          {TABS.map((t) => (
-            <Tab key={t.key} active={tab === t.key} onClick={() => setTab(t.key)}>
-              {t.label}
-            </Tab>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="flex gap-1">
-            {RANGES_FOR[tab].map((r) => (
-              <Tab
-                key={r.hours}
-                active={hours === r.hours}
-                onClick={() => setRanges((all) => ({ ...all, [tab]: r.hours }))}
-              >
-                {r.label}
-              </Tab>
-            ))}
-          </div>
-          {tab === "latency" && (
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={smooth}
-                onChange={(e) => setSmooth(e.target.checked)}
-                className="accent-foreground"
-              />
-              削峰
-            </label>
-          )}
-        </div>
+      {/* Two controls on one line, each in its own container. They used to be two
+          stacked rows of identical blue pills, which said nothing about one picking
+          a view and the other a time range. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Segmented
+          label="数据视图"
+          value={tab}
+          onChange={setTab}
+          items={TABS.map((t) => ({ value: t.key, label: t.label }))}
+        />
+        <Segmented
+          label="时间范围"
+          value={hours}
+          onChange={(next) => setRanges((all) => ({ ...all, [tab]: next }))}
+          items={RANGES_FOR[tab].map((r) => ({ value: r.hours, label: r.label }))}
+        />
+        {tab === "latency" && (
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={smooth}
+              onChange={(e) => setSmooth(e.target.checked)}
+              className="accent-foreground"
+            />
+            削峰
+          </label>
+        )}
       </div>
 
       {!data ? (
@@ -409,7 +446,12 @@ export function NodeDetail({ node }: { node: Node }) {
                 ? { height: `calc(100svh - ${Math.round(chartTop)}px - 1rem)` }
                 : undefined
             }
-            className="flex min-h-72 flex-col gap-3">
+            className="min-h-72">
+            {/* The card fills the column whose height was just measured. The outer
+                element keeps the ref and the height: measuring the card instead
+                would put its own padding and border below the fold. */}
+            <Card className="flex h-full flex-col gap-3 p-4">
+              <h4 className="text-xs font-medium text-muted-foreground">网络延迟</h4>
             {/* `min-h-0` is what makes `flex-1` a real number rather than the
                 content's own height: ResponsiveContainer reads its parent, and
                 a flex child not told it may shrink reports whatever the SVG
@@ -421,7 +463,7 @@ export function NodeDetail({ node }: { node: Node }) {
               ) : (
                 <ResponsiveContainer>
                   <ComposedChart data={pingRows}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                     <XAxis
                       {...timeAxis(
                         pingRows,
@@ -458,7 +500,7 @@ export function NodeDetail({ node }: { node: Node }) {
                           key={`band${s.id}`}
                           dataKey={`b${s.id}`}
                           stroke="none"
-                          fill={style(s.id).stroke}
+                          fill={style(s.id)}
                           fillOpacity={0.16}
                           isAnimationActive={false}
                           tooltipType="none"
@@ -471,8 +513,7 @@ export function NodeDetail({ node }: { node: Node }) {
                         key={s.id}
                         dataKey={`${smooth ? "s" : "t"}${s.id}`}
                         name={s.name}
-                        stroke={style(s.id).stroke}
-                        strokeDasharray={style(s.id).dash}
+                        stroke={style(s.id)}
                         {...SERIES}
                         connectNulls
                       />
@@ -510,15 +551,14 @@ export function NodeDetail({ node }: { node: Node }) {
                       shown ? "" : "opacity-40"
                     }`}
                   >
-                    {/* The swatch carries the same shade and dash as the line. */}
+                    {/* The swatch carries the same hue as the line. */}
                     <svg width="14" height="6" className="shrink-0" aria-hidden>
                       <line
                         x1="0"
                         y1="3"
                         x2="14"
                         y2="3"
-                        stroke={style(s.id).stroke}
-                        strokeDasharray={style(s.id).dash}
+                        stroke={style(s.id)}
                         strokeWidth="2"
                       />
                     </svg>
@@ -535,6 +575,7 @@ export function NodeDetail({ node }: { node: Node }) {
               })}
             </div>
             )}
+            </Card>
           </div>
         )
       ) : data.metrics.length === 0 ? (
@@ -544,7 +585,7 @@ export function NodeDetail({ node }: { node: Node }) {
           <Panel title="CPU">
             <ResponsiveContainer>
               <AreaChart data={metricRows}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis {...timeAxis(metricRows)} />
                 <YAxis domain={[0, tops.cpu]} ticks={quarters(tops.cpu)} unit="%" width={Y_WIDTH} {...AXIS} />
                 <Tooltip
@@ -552,7 +593,8 @@ export function NodeDetail({ node }: { node: Node }) {
                   formatter={(v) => [`${Number(v).toFixed(1)}%`, "CPU"]}
                   contentStyle={{ fontSize: 12 }}
                 />
-                <Area dataKey="cpu" stroke="var(--color-chart-1)" fill="var(--color-chart-1)" fillOpacity={0.15} {...SERIES} />
+                <Wash id="cpu-wash" color="var(--color-chart-1)" />
+                <Area dataKey="cpu" stroke="var(--color-chart-1)" fill="url(#cpu-wash)" {...SERIES} />
               </AreaChart>
             </ResponsiveContainer>
           </Panel>
@@ -565,7 +607,7 @@ export function NodeDetail({ node }: { node: Node }) {
           <Panel title={`内存 · ${bytes(node.mem_total)}`}>
             <ResponsiveContainer>
               <AreaChart data={metricRows}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis {...timeAxis(metricRows)} />
                 <YAxis domain={[0, node.mem_total]} ticks={quarters(node.mem_total)} tickFormatter={axisBytes} width={Y_WIDTH} {...AXIS} />
                 <Tooltip
@@ -573,7 +615,8 @@ export function NodeDetail({ node }: { node: Node }) {
                   formatter={(v) => bytes(Number(v))}
                   contentStyle={{ fontSize: 12 }}
                 />
-                <Area dataKey="mem_used" name="内存" stroke="var(--color-chart-2)" fill="var(--color-chart-2)" fillOpacity={0.15} {...SERIES} />
+                <Wash id="mem-wash" color="var(--color-chart-1)" />
+                <Area dataKey="mem_used" name="内存" stroke="var(--color-chart-1)" fill="url(#mem-wash)" {...SERIES} />
               </AreaChart>
             </ResponsiveContainer>
           </Panel>
@@ -583,7 +626,7 @@ export function NodeDetail({ node }: { node: Node }) {
           <Panel title="网络速率">
             <ResponsiveContainer>
               <LineChart data={metricRows}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis {...timeAxis(metricRows)} />
                 <YAxis domain={[0, tops.rate]} ticks={quarters(tops.rate)} tickFormatter={axisBytes} unit="/s" width={Y_WIDTH} {...AXIS} />
                 <Tooltip
@@ -591,8 +634,10 @@ export function NodeDetail({ node }: { node: Node }) {
                   formatter={(v) => rate(Number(v))}
                   contentStyle={{ fontSize: 12 }}
                 />
-                <Line dataKey="net_rx" name="下行" stroke="var(--color-ok)" {...SERIES} />
-                <Line dataKey="net_tx" name="上行" stroke="var(--color-chart-1)" {...SERIES} />
+                {/* Two lines, so two hues -- and the same pair the summary's
+                    sparkline uses for the same two directions. */}
+                <Line dataKey="net_rx" name="下行" stroke="var(--color-chart-1)" {...SERIES} />
+                <Line dataKey="net_tx" name="上行" stroke="var(--color-chart-4)" {...SERIES} />
               </LineChart>
             </ResponsiveContainer>
           </Panel>
@@ -603,7 +648,7 @@ export function NodeDetail({ node }: { node: Node }) {
           <Panel title={`硬盘 · ${bytes(node.disk_total)}`}>
             <ResponsiveContainer>
               <AreaChart data={metricRows}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
                 <XAxis {...timeAxis(metricRows)} />
                 <YAxis domain={[0, node.disk_total]} ticks={quarters(node.disk_total)} tickFormatter={axisBytes} width={Y_WIDTH} {...AXIS} />
                 <Tooltip
@@ -611,7 +656,8 @@ export function NodeDetail({ node }: { node: Node }) {
                   formatter={(v) => bytes(Number(v))}
                   contentStyle={{ fontSize: 12 }}
                 />
-                <Area dataKey="disk_used" name="硬盘" stroke="var(--color-chart-2)" fill="var(--color-chart-2)" fillOpacity={0.15} {...SERIES} />
+                <Wash id="disk-wash" color="var(--color-chart-1)" />
+                <Area dataKey="disk_used" name="硬盘" stroke="var(--color-chart-1)" fill="url(#disk-wash)" {...SERIES} />
               </AreaChart>
             </ResponsiveContainer>
           </Panel>

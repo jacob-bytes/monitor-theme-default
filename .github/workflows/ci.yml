@@ -2,7 +2,10 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    # Every branch, not just main. Upstream only builds main, so the commits on
+    # this fork's long-lived branch never reached CI at all. Kept off main on
+    # purpose: a commit on main would diverge it from upstream and break the
+    # fast-forward the sync relies on.
     # Prose changes nothing a compiler or linter can check.
     paths-ignore: ["**.md", "LICENSE"]
   pull_request:
