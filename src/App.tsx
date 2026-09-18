@@ -162,15 +162,12 @@ export default function App() {
               its own back arrow beside the name -- where the eye already is -- so
               this note no longer claims it needs none. */}
           <button
-            className="flex items-baseline gap-2 rounded-md text-base font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-md text-base font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
             onClick={() => go(null)}
           >
             {/* The tab's own mark, so the page and the tab read as the same thing
                 rather than two things that happen to share a name. */}
-            {/* 12.5% of the mark's own viewBox is empty below the bars, so its box bottom sits
-                2.5px under them at 20px; cancelling that is what makes the baseline below
-                land the wordmark on the bars rather than under them. */}
-            <img src="/favicon.svg" alt="" className="-mb-[2.5px] size-5 shrink-0" />
+            <img src="/favicon.svg" alt="" className="size-5 shrink-0" />
             {me.site_name || "Monitor"}
           </button>
           <div className="flex-1" />
