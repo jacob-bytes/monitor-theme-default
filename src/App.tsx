@@ -162,7 +162,7 @@ export default function App() {
               its own back arrow beside the name -- where the eye already is -- so
               this note no longer claims it needs none. */}
           <button
-            className="flex items-center gap-2 rounded-md text-base font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+            className="flex items-baseline gap-2 rounded-md text-base font-semibold tracking-tight transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
             onClick={() => go(null)}
           >
             {/* The tab's own mark, so the page and the tab read as the same thing
