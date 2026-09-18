@@ -167,7 +167,10 @@ export default function App() {
           >
             {/* The tab's own mark, so the page and the tab read as the same thing
                 rather than two things that happen to share a name. */}
-            <img src="/favicon.svg" alt="" className="size-5 shrink-0" />
+            {/* 12.5% of the mark's own viewBox is empty below the bars, so its box bottom sits
+                2.5px under them at 20px; cancelling that is what makes the baseline below
+                land the wordmark on the bars rather than under them. */}
+            <img src="/favicon.svg" alt="" className="-mb-[2.5px] size-5 shrink-0" />
             {me.site_name || "Monitor"}
           </button>
           <div className="flex-1" />
